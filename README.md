@@ -1,2 +1,2 @@
 # Vision_Match
-A bot for searching clothes by photo. kat
+A bot for searching clothes by photo.
