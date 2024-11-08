@@ -17,7 +17,7 @@ from aiogram.types import (
 # чтобы получить настоящее содержимое вместо '*****'
 # Объект бота
 # bot = Bot(token=config.bot_token.get_secret_value())
-bot = Bot(token="7544782847:AAG2cOJdgRprwf2vo2OPCDVkrYbdLYDBqSA")
+bot = Bot(token="")
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
 
