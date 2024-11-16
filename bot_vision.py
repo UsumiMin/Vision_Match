@@ -4,7 +4,7 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters.command import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-bot = Bot(token="7544782847:AAGbpPxNuyvUT5TAyfMOge0SFb5G9QD2tIw")
+bot = Bot(token='')
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
 
