@@ -4,25 +4,22 @@ from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters.command import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-bot = Bot(token="")
+bot = Bot(token='')
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
 
 # Диспетчер
 dp = Dispatcher()
-categories = {
-    "Верх": 1,
-    "Низ": 2,
-    "Обувь": 3,
-    "Комплекты": 4,
-    "Акссесуары": 5,
-    "Парфюмерия": 6,
-}
-categ = None
 
 
-def one_of_categories(clothes):
-    return categories[clothes]
+class ai:
+    categories = 0
+
+    def send_to_ai(photo):
+        pass
+
+    def take_from_ai(category):
+        pass
 
 
 # Хэндлер на команду /start
@@ -47,26 +44,7 @@ async def send_welcome(message: types.Message):
 
 @dp.message(F.text.lower() == "начать работу")
 async def start_work(message: types.Message):
-    kb = [
-        [types.KeyboardButton(text="Верх"), types.KeyboardButton(text="Низ")],
-        [
-            types.KeyboardButton(text="Обувь"),
-            types.KeyboardButton(text="Комплекты"),
-        ],
-        [
-            types.KeyboardButton(text="Аксессуары"),
-            types.KeyboardButton(text="Парфюмерия"),
-        ],
-        [types.KeyboardButton(text="Назад")],
-    ]
-    keyboard = types.ReplyKeyboardMarkup(
-        keyboard=kb, resize_keyboard=True, input_field_placeholder="Выберите категорию"
-    )
-
-    await message.reply(
-        "Отлично! Выбери нужную категорию.",
-        reply_markup=keyboard,
-    )
+    await message.answer("Отправьте фото, на котором вы хотите найти одежду")
 
 
 @dp.message(F.text.lower() == "контакты")
@@ -116,36 +94,36 @@ async def stop_bot(message: types.Message):
     await dp.stop_polling()
 
 
-@dp.message(F.text.lower() == "верх")
-async def with_puree(message: types.Message):
-    await message.answer("Отправьте фото, на котором вы хотите найти одежду")
-
-
-"""@dp.message(categ)
-async def echo(message: types.Message):
-    await message.answer("Отправьте фото, на котором вы хотите найти одежду")"""
-
-global file_photo_id
-# file_photo_id = ""
 bot: Bot
-global fp
 
 
 @dp.message(F.photo)
-async def send_photo_copy(message: types.Message):
-    await message.answer(
-        "Пока я без ии мало что могу( Но я отправлю ваше фото вам обратно."
+async def send_photo(message: types.Message):
+    file_name = f"./{message.photo[-1].file_id}.jpg"
+    kb = [[types.KeyboardButton(text="Выбрать всё")]]
+    keyboard = types.ReplyKeyboardMarkup(
+        keyboard=kb,
+        resize_keyboard=True,
+        input_field_placeholder="Нажмите на кнопку или введите нужную категорию",
     )
-    await message.send_copy(chat_id=message.chat.id)
+    ai.send_to_ai(file_name)
+    await message.reply(
+        "Скажите что вы хотите найти",
+        reply_markup=keyboard,
+    )
+    # bot.download(message.photo[-1],destination=file_name)
+
+
+@dp.message(F.text.lower() == "выбрать всё")
+async def ai_all(message: types.Message):
+    ai.take_from_ai("all")
+    await message.reply("Ищу всё, вот оно: (В процессе)")
 
 
 @dp.message(F.text)
-async def send_photo(message: types.Message):
-    await message.answer("Я не понимаю что вы хотите")
-    """bot.send_photo(
-        chat_id=message.from_user.id,
-        photo=fp,
-    )"""
+async def ai_one(message: types.Message):
+    ai.take_from_ai(F.text.lower())
+    await message.reply(f"Ищу {message.text.lower()}, вот оно: (В процессе)")
 
 
 # Запуск процесса поллинга новых апдейтов
