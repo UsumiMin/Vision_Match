@@ -11,6 +11,7 @@ import datetime
 import json
 import re 
 import threading 
+import shutil
 
 import vm_model
 import compare_model
@@ -49,19 +50,20 @@ async def send_welcome(message: types.Message):
 
 @dp.message(F.text.lower() == "начать работу")
 async def start_work(message: types.Message):
-    # kb = [
-    #     [
-    #         types.KeyboardButton(text="Все"),
-    #         types.KeyboardButton(text="Отдельную вещь"),
-    #     ]
-    # ]
-    # keyboard = types.ReplyKeyboardMarkup(
-    #     keyboard=kb, resize_keyboard=True, input_field_placeholder="Выберите режим"
-    # )
+    kb = [
+        [
+            types.KeyboardButton(text="Искать все"),
+            types.KeyboardButton(text="Искать отдельную вещь"),
+        ],
+        [   types.KeyboardButton(text="Назад") ]
+    ]
+    keyboard = types.ReplyKeyboardMarkup(
+        keyboard=kb, resize_keyboard=True, input_field_placeholder="Выберите режим"
+    )
 
     await message.reply(
-        "Загрузи фотку"#,
-        #reply_markup=keyboard,
+        "Выберите режим работы бота: поиск всех вещей с фотографии или поиск определенной вещи",
+        reply_markup=keyboard,
     )
 
 
@@ -104,9 +106,18 @@ async def instruction(message: types.Message):
     )
 
 
-@dp.message(F.text.lower() == "верх")
+@dp.message(F.text.lower() == "искать все")
 async def with_puree(message: types.Message):
     await message.answer("Отправьте фото, на котором вы хотите найти одежду")
+
+@dp.message(F.text.lower() == "искать отдельную вещь")
+async def with_puree(message: types.Message):
+    await message.answer("Отправьте фото с описвнием что конкретно вы хотите найти с фотографии ")
+
+
+@dp.message(F.text.lower() == "назад")
+async def url_command(message: types.Message):
+    await send_welcome(message)
 
 def compare_item(item_name, origin_path, folder_path):
     comparison_ratings = []
@@ -150,38 +161,38 @@ def get_files(folder_path):
 
     return files[:5]
 
-async def do_item(chatid, base_path, origin_filename, search_phrase, item_name, description):
-    items_urls = parser.download_images(base_path+"/search_images/", search_phrase)
-    print("+"*50, "parser finished")
-    comparison_ratings = get_files(f"{base_path}/search_images/{search_phrase}/")
-    #comparison_ratings = compare_item(item_name, #compare_model.comparse_image(item_name, 
-    #                   f"{base_path}/{origin_filename}.jpg", 
-    #                   f"{base_path}/search_images/{search_phrase}/")
-    print(items_urls)
-    #threading.Thread(target=send_result_match, args=(chatid, description, comparison_ratings, items_urls)).start()
+async def do_item(chat_id, base_path, origin_filename, search_phrase, item_name, description):
+    try:
+        items_urls = parser.download_images(base_path+"/search_images/", search_phrase)
+        comparison_ratings = get_files(f"{base_path}/search_images/{search_phrase}/")
         
-    #loop = asyncio.get_event_loop()
-    #result = await loop.run_in_executor(None, send_result_match, chatid, description, comparison_ratings, items_urls)
+        await send_result_match(chat_id, description, comparison_ratings, items_urls)
+    except:
+        print(f"Exception caught")
 
-    #asyncio.create_task(send_result_match(chatid, description, comparison_ratings, items_urls))
-    await send_result_match(chatid, description, comparison_ratings, items_urls)
-    #result = await asyncio.to_thread(send_result_match, chatid, description, comparison_ratings, items_urls)
-        
+    if(os.path.isdir(f"{base_path}/search_images/{search_phrase}")):
+        shutil.rmtree(f"{base_path}/search_images/{search_phrase}")
+        #os.rmdir(f"{base_path}/search_images/")
+    
 
 async def process_message(message: types.Message):
     filename = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     base_path = f"./images/{message.from_user.id}" #{filename}.jpg"
     img_path = f"{base_path}/{filename}.jpg"
     await bot.download(message.photo[-1], destination=img_path)
-    response = vm_model.get_description(img_path)
+    prompt = ""
+    if(message.caption):
+        prompt += "Я хочу чтообы ты нашел определенную вещь. " + message.caption 
+    response = vm_model.get_description(img_path, prompt)
     print(response)
     json_response = json.loads(response)
     items_size = len(json_response["items"])
     if(items_size==0):
         await message.answer("Не смог найти одежду на фотографии")
+        return 
 
-    items = []
-    threads = []
+
+    tasks = []  # Create a list to hold the tasks
     for i in range(items_size):
         search_phrase = json_response["items"][i]["search_phrase"]
         print(search_phrase)
@@ -194,95 +205,36 @@ async def process_message(message: types.Message):
         #result = await asyncio.to_thread(do_item, message.chat.id, base_path, filename,
         #                                       search_phrase, item_name, description)
         try:
+            # threading.Thread(target=do_item, args=(message.chat.id, base_path, filename,
+            #                                      search_phrase, item_name, description)).start()
+        
             await do_item(message.chat.id, base_path, filename, search_phrase, item_name, description)
+            #result = await asyncio.to_thread(do_item, message.chat.id, base_path, filename,
+            #                                 search_phrase, item_name, description)
+            #task = asyncio.create_task(do_item(message.chat.id, base_path, filename, search_phrase, item_name, description)) # Create a task
+           # tasks.append(task)  # Add task to the list
+     
         except:
-            print(f"Exception on item {item_name}")
-        # items_urls = parser.download_images(base_path+"/search_images/", search_phrase)
-        # comparison_ratings = compare_item(item_name, #compare_model.comparse_image(item_name, 
-        #                                          f"{base_path}/{filename}.jpg", 
-        #                                          f"{base_path}/search_images/{search_phrase}/")
-        # print(items_urls)
-        # await send_result_match(message.chat.id, description, comparison_ratings, items_urls)
-    
-    # for thread in threads:
-    #     thread.join()
+           print(f"Exception on item {item_name}")
+           continue
 
-    return "Ready"
+    #await asyncio.gather(*tasks) # Await all tasks concurrently
+    if(os.path.isfile(img_path)):
+        os.remove(img_path)
 
 
 @dp.message(F.photo)
 async def send_photo_copy(message: types.Message):
-    print(f"Received message: {message.text}")
-    #result = await process_message(message)  # Do NOT use asyncio.to_thread
-    #await message.answer(result)
-    asyncio.create_task(process_message(message))
-
-    #result = await asyncio.to_thread(process_message, message)
-    #await message.answer(result)
-    # loop = asyncio.get_event_loop()
-    # result = await loop.run_in_executor(None, process_message, message)
-
-    # await message.reply(result)
-    
-    # thread = threading.Thread(target=process_message_thread, args=(message,))
-    # thread.start()
-
-    await message.reply("Message received and processing started...")
-'''
-    filename = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
-    base_path = f"./images/{message.from_user.id}" #{filename}.jpg"
-    img_path = f"{base_path}/{filename}.jpg"
-    await bot.download(message.photo[-1], destination=img_path)
-    response = vm_model.get_description(img_path)
-    print(response)
-    json_response = json.loads(response)
-    items_size = len(json_response["items"])
-    if(items_size==0):
-        await message.answer("Не смог найти одежду на фотографии")
-
-    comparison_ratings = []
-    #threads = []
-    for i in range(items_size):
-        search_phrase = json_response["items"][i]["search_phrase"]
-        item_name = json_response["items"][i]["name"]
-        description = json_response["items"][i]["description"]
-        items_urls = await parser.download_images(base_path+"/search_images/", search_phrase)
-        comparison_ratings = await compare_item(item_name, #compare_model.comparse_image(item_name, 
-                                                 f"{base_path}/{filename}.jpg", 
-                                                 f"{base_path}/search_images/{search_phrase}/")
-        print(items_urls)
-        #threads.append(threading.Thread(send_result_match, args=(message.chat.id, description, comparison_ratings, items_urls)))
-        #await threads[i].start()
-        await send_result_match(message.chat.id, description, comparison_ratings, items_urls)
-    
-        #await send_result_match(message.chat.id, description, comparison_ratings, items_urls)
-'''  
-
-def long_running_function(message):
-    # Perform your time-consuming task here
-    print("Starting long-running function...")
-    # Simulate a long-running task
-    asyncio.sleep(5)
-    print("Long-running function completed!")
-    return "Result from long-running function"
-
-@dp.message(F.text.lower() == 'long_task')
-async def handle_long_task(message: types.Message):
-    # Run the function in a new thread
-    loop = asyncio.get_event_loop()
-    result = await loop.run_in_executor(None, long_running_function, message)
-
-    # Send the result back to the user
-    await message.reply(result)
+    try:
+        asyncio.create_task(process_message(message))
+        await message.reply("Начал поиск...")
+    except:
+        print(f"Exception in request processing")
+        await message.reply("Извините, что-то пошло не так. Я не смог обработать вашу фотографию, попробуйте повторить ваш запрос. ")
 
 @dp.message(F.text)
 async def send_photo(message: types.Message):
     await message.answer("Я не понимаю что вы хотите")
-    """bot.send_photo(
-        chat_id=message.from_user.id,
-        photo=fp,
-    )"""
-
 
 # Запуск процесса поллинга новых апдейтов
 async def main():
