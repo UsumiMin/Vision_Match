@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import emoji
 
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters.command import Command
@@ -42,8 +43,11 @@ async def send_welcome(message: types.Message):
     if(not os.path.isdir(f"./images/{message.from_user.id}")):
         os.mkdir(f"./images/{message.from_user.id}")
 
-    await message.reply(
-        "Привет!\nЯ Vision Match!\nВыбери из меню то, что хочешь сделать.",
+   await message.reply(
+        emoji.emojize(
+            "Привет!:waving_hand: \n\nМеня зовут *Vision Match!* Я – ваш помощник в мире моды! :woman_dancing::man_dancing: \nКак это работает? Просто отправьте мне фотографию или рисунок одежды, и я найду лучшие варианты на маркетплейсах! \n\nДавайте начнём работу!"
+        ),
+        parse_mode="Markdown",
         reply_markup=keyboard,
     )
 
