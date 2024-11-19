@@ -1,10 +1,12 @@
 import asyncio
 import logging
+import emoji
 
 from aiogram import Bot, Dispatcher, types, F
 from aiogram.filters.command import Command
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.media_group import MediaGroupBuilder
+from aiogram.enums.parse_mode import ParseMode
 
 import os
 import datetime
@@ -18,7 +20,7 @@ import compare_model
 import parser 
 
 
-bot = Bot(token="7544782847:AAGbpPxNuyvUT5TAyfMOge0SFb5G9QD2tIw")
+bot = Bot(token="")
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
 
@@ -42,8 +44,12 @@ async def send_welcome(message: types.Message):
     if(not os.path.isdir(f"./images/{message.from_user.id}")):
         os.mkdir(f"./images/{message.from_user.id}")
 
+    
     await message.reply(
-        "Привет!\nЯ Vision Match!\nВыбери из меню то, что хочешь сделать.",
+        emoji.emojize(
+            "Привет!:waving_hand: \n\nМеня зовут *Vision Match!* Я – ваш помощник в мире моды! :woman_dancing::man_dancing: \nКак это работает? Просто отправьте мне фотографию или рисунок одежды, и я найду лучшие варианты на маркетплейсах! \n\nДавайте начнём работу!"
+        ),
+        parse_mode="Markdown",
         reply_markup=keyboard,
     )
 
@@ -102,17 +108,17 @@ async def url_command(message: types.Message):
 @dp.message(F.text.lower() == "инструкция")
 async def instruction(message: types.Message):
     await message.answer(
-        "Выбираете категорию, загружаете нужное фото, бот подбирает вам ссылки с маркетплейсов с вашим товаром."
+        "1. Выбираете режим: \"искать все \" или \"искать отдельную вещь\" \n2. Загружаете нужное фото, если вы выбирали категорию \"искать отдельную вещь\", необходимо указать, какой именно элемент вы хотите найти \n3. Бот отправляет сообщение с описанием по тегам, фото и ссылками с маркетплейсов для каждого из товаров, кототорый нужно было найти."
     )
 
 
 @dp.message(F.text.lower() == "искать все")
 async def with_puree(message: types.Message):
-    await message.answer("Отправьте фото, на котором вы хотите найти одежду")
+    await message.answer("Отправьте фото, на котором вы хотите найти одежду и аксессуары")
 
 @dp.message(F.text.lower() == "искать отдельную вещь")
 async def with_puree(message: types.Message):
-    await message.answer("Отправьте фото с описвнием что конкретно вы хотите найти с фотографии ")
+    await message.answer("Отправьте фото с указанием элемента, который вы хотите найти")
 
 
 @dp.message(F.text.lower() == "назад")
@@ -128,29 +134,44 @@ def compare_item(item_name, origin_path, folder_path):
     print(comparison_ratings[:5])
     return comparison_ratings[:5]
 
-async def send_result_match(chat_id, description, comparison_ratings, items_urls):
+def get_item_messge(chat_id, description, comparison_ratings, items_urls):
     message = description + "\n\n"
     media = MediaGroupBuilder()
     for i in range(len(comparison_ratings)):
-        #item_index = comparison_ratings[i]["image_name"].split("_")[0]
-        #if(len(item_index)):
-        #    continue
-        #item_index = int(item_index)
         image_path = comparison_ratings[i]#["image_url"]
         item_index = int(image_path.split("/")[-1].split("_")[0])
         url = items_urls[item_index]
         message += f"{i+1}. {url} \n"
         try:
-            media.add_photo(types.FSInputFile(image_path), caption=url)#url)
+            media.add_photo(types.FSInputFile(image_path), caption=url)
         except ...:
-            print("Caight exception while loading photo")
+            print("Caught exception while loading photo")
             continue
-    #await bot.send_media_group(chat_id, media_group)
-    try:
-        await bot.send_media_group(chat_id, media=media.build())
-        await bot.send_message(chat_id, message)
-    except ...:
-        print("Caight exception while sending group")
+    return (media, message)
+        
+# async def send_result_match(chat_id, description, comparison_ratings, items_urls):
+#     message = description + "\n\n"
+#     media = MediaGroupBuilder()
+#     for i in range(len(comparison_ratings)):
+#         #item_index = comparison_ratings[i]["image_name"].split("_")[0]
+#         #if(len(item_index)):
+#         #    continue
+#         #item_index = int(item_index)
+#         image_path = comparison_ratings[i]#["image_url"]
+#         item_index = int(image_path.split("/")[-1].split("_")[0])
+#         url = items_urls[item_index]
+#         message += f"{i+1}. {url} \n"
+#         try:
+#             media.add_photo(types.FSInputFile(image_path), caption=url)#url)
+#         except ...:
+#             print("Caight exception while loading photo")
+#             continue
+#     #await bot.send_media_group(chat_id, media_group)
+#     try:
+#         await bot.send_media_group(chat_id, media=media.build())
+#         await bot.send_message(chat_id, message, parse_mode=ParseMode.MARKDOWN)
+#     except ...:
+#         print("Caight exception while sending group")
 
 
 def get_files(folder_path):
@@ -161,20 +182,18 @@ def get_files(folder_path):
 
     return files[:5]
 
-async def do_item(chat_id, base_path, origin_filename, search_phrase, item_name, description):
+def do_item(chat_id, base_path, origin_filename, search_phrase, item_name, description):
     try:
         items_urls = parser.download_images(base_path+"/search_images/", search_phrase)
         comparison_ratings = get_files(f"{base_path}/search_images/{search_phrase}/")
-        
-        await send_result_match(chat_id, description, comparison_ratings, items_urls)
+        return_message = get_item_messge(chat_id, description, comparison_ratings, items_urls)
+
+        return return_message
     except:
         print(f"Exception caught")
 
-    if(os.path.isdir(f"{base_path}/search_images/{search_phrase}")):
-        shutil.rmtree(f"{base_path}/search_images/{search_phrase}")
-        #os.rmdir(f"{base_path}/search_images/")
     
-
+from concurrent.futures import ThreadPoolExecutor
 async def process_message(message: types.Message):
     filename = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     base_path = f"./images/{message.from_user.id}" #{filename}.jpg"
@@ -191,34 +210,29 @@ async def process_message(message: types.Message):
         await message.answer("Не смог найти одежду на фотографии")
         return 
 
+    tasks = []  
+    with ThreadPoolExecutor() as executor:
+        for i in range(items_size):
+            try:
+                search_phrase = json_response["items"][i]["search_phrase"]
+                print(search_phrase)
+                item_name = json_response["items"][i]["name"]
+                description = json_response["items"][i]["description"]
+                tasks.append(executor.submit(do_item, message.chat.id, base_path, filename, search_phrase, item_name, description))  
+            except:
+                print(f"Exception on item {item_name}")
+                continue
 
-    tasks = []  # Create a list to hold the tasks
     for i in range(items_size):
-        search_phrase = json_response["items"][i]["search_phrase"]
-        print(search_phrase)
-        item_name = json_response["items"][i]["name"]
-        description = json_response["items"][i]["description"]
-        # thread = threading.Thread(target=do_item, args=(message.chat.id, base_path, filename,
-        #                                         search_phrase, item_name, description))
-        # threads.append(thread)
-        # thread.start()
-        #result = await asyncio.to_thread(do_item, message.chat.id, base_path, filename,
-        #                                       search_phrase, item_name, description)
         try:
-            # threading.Thread(target=do_item, args=(message.chat.id, base_path, filename,
-            #                                      search_phrase, item_name, description)).start()
-        
-            await do_item(message.chat.id, base_path, filename, search_phrase, item_name, description)
-            #result = await asyncio.to_thread(do_item, message.chat.id, base_path, filename,
-            #                                 search_phrase, item_name, description)
-            #task = asyncio.create_task(do_item(message.chat.id, base_path, filename, search_phrase, item_name, description)) # Create a task
-           # tasks.append(task)  # Add task to the list
-     
+            media, result_message = tasks[i].result()
+            await bot.send_media_group(message.chat.id, media=media.build())
+            await bot.send_message(message.chat.id, result_message, parse_mode=ParseMode.MARKDOWN)
         except:
-           print(f"Exception on item {item_name}")
-           continue
+            print(f"Couldn't send message with index {i}")
 
-    #await asyncio.gather(*tasks) # Await all tasks concurrently
+    if(os.path.isdir(f"{base_path}/search_images/")):
+        shutil.rmtree(f"{base_path}/search_images/")
     if(os.path.isfile(img_path)):
         os.remove(img_path)
 
