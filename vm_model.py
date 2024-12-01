@@ -1,4 +1,6 @@
 import google.generativeai as genai
+import asyncio
+import aiohttp
 
 genai.configure(api_key="AIzaSyAvszxQQyswlIPjT2AHBC458SvyH-kpIeQ")
 
@@ -83,13 +85,16 @@ model = genai.GenerativeModel(
     system_instruction = system_instruction
 )
 
-
-def get_description(photo_filename, prompt = ""):
-
-    myfile = genai.upload_file(photo_filename) #("./images/vm_test1.jpg")
-    result = model.generate_content(
+async def proc_img(myfile, prompt = "") -> str:
+    result = await model.generate_content_async(
         [myfile, "\n\n", prompt]
     )
-    response = result.text.replace("```json", "")
+    return result.text
+
+async def get_description(photo_filename, prompt = ""):
+
+    myfile = genai.upload_file(photo_filename) #("./images/vm_test1.jpg")
+    result = await proc_img(myfile,prompt)
+    response = result.replace("```json", "")
     response = response.replace("```", "")
     return response

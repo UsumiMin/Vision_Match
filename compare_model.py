@@ -100,6 +100,48 @@ def upload_multiple_images(image_paths):
 
     return file_uris
 
+async def proc_img(item, *files_urls) -> str:
+    result = await model.generate_content_async(
+        [item, *files_urls]
+    )
+    return result.text
+
+async def proc_img2(prompt) -> str:
+    result = await model.generate_content_async(
+        [prompt]
+    )
+    return result.text
+
+async def compare_images(item, origin_filename, folder_path):
+    files = []
+    filenames = []
+    files.append(origin_filename)
+    filenames.append(origin_filename)
+    for f in os.listdir(folder_path):
+        if os.path.isfile(os.path.join(folder_path, f)):
+            files.append(os.path.join(folder_path, f))
+            filenames.append(f)
+
+    files_urls = upload_multiple_images(files)
+    prompt = f"{item}\n\n images: {','.join(filenames)}"
+    
+    result = await proc_img(item, *files_urls)
+    result = await proc_img2(prompt)
+
+    response = result.text.replace("```json", "")
+    response = response.replace("```", "")
+    print(response)
+    return response 
+
+'''def upload_multiple_images(image_paths):
+    file_uris = []
+
+    for image_path in image_paths:
+        file = genai.upload_file(image_path)
+        file_uris.append(file.uri)
+
+    return file_uris
+
 def compare_images(item, origin_filename, folder_path):
     files = []
     filenames = []
@@ -111,7 +153,7 @@ def compare_images(item, origin_filename, folder_path):
             filenames.append(f)
 
     files_urls = upload_multiple_images(files)
-    prompt = f"{item}\n\n images: {",".join(filenames)}"
+    prompt = f"{item}\n\n images: {','.join(filenames)}"
     result = model.generate_content(
         [item, *files_urls]
     ) 
@@ -120,8 +162,7 @@ def compare_images(item, origin_filename, folder_path):
     response = result.text.replace("```json", "")
     response = response.replace("```", "")
     print(response)
-    return response 
-
+    return response '''
 
 # origin = "/home/koluchiy/Documents/Vision Match/Vision_match_bot/images/1087136471/2024-11-16_20:00:31.jpg"
 # path = "/home/koluchiy/Documents/Vision Match/Vision_match_bot/images/1087136471/search_images/Серьги Van Cleef & Arpels с белыми цветами и камнями"
