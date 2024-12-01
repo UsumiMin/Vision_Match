@@ -184,7 +184,18 @@ def get_files(folder_path):
 
 def do_item(chat_id, base_path, origin_filename, search_phrase, item_name, description):
     try:
-        items_urls = parser.download_images(base_path+"/search_images/", search_phrase)
+        all_filters = parser.get_filters(item_name)
+        img_path = f"{base_path}/{origin_filename}.jpg"
+        prompt = f"режим фильтры \n\n входные данные для режима: \n {item_name}\n\n {all_filters}"
+        temp = vm_model.get_description(img_path, prompt)
+        print(temp)
+        filters_reponse = json.loads(temp)
+        print(f"Response\n\n {filters_reponse}")
+        url_filters = filters_reponse["filters"]
+        print(f"Filters\n\n {url_filters}")
+        print(f"END", "*"*20)
+
+        items_urls = parser.download_images(base_path+"/search_images/", search_phrase, url_filters)
         comparison_ratings = get_files(f"{base_path}/search_images/{search_phrase}/")
         return_message = get_item_messge(chat_id, description, comparison_ratings, items_urls)
 
@@ -199,9 +210,9 @@ async def process_message(message: types.Message):
     base_path = f"./images/{message.from_user.id}" #{filename}.jpg"
     img_path = f"{base_path}/{filename}.jpg"
     await bot.download(message.photo[-1], destination=img_path)
-    prompt = ""
+    prompt = "режим описание \n\n "
     if(message.caption):
-        prompt += "Я хочу чтообы ты нашел определенную вещь. " + message.caption 
+        prompt += "входные данные для режима: \n " + message.caption 
     response = vm_model.get_description(img_path, prompt)
     print(response)
     json_response = json.loads(response)

@@ -42,13 +42,18 @@ def get_basket(shirt_id):
     
     return basket
 
+def get_filters(clothes_type):
+    url = f"https://search.wb.ru/exactmatch/ru/common/v7/search?ab_testid=no_reranking&appType=1&curr=rub&dest=-1255987&query={'%20'.join(clothes_type.split())}&resultset=filters&spp=30&suppressSpellcheck=false&uclusters=0"
 
-def download_images(path, search_phrase):
+    return requests.get(url).text
+
+
+def download_images(path, search_phrase, url_filters):
     url = (f"https://search.wb.ru/exactmatch/ru/common/v4/search?"
                     f"appType=1&curr=rub&dest=-1257786&page={1}"
                     f"&query={'%20'.join(search_phrase.split())}&resultset=catalog"
-                    f"&sort=popular&spp=24&suppressSpellcheck=false")
-
+                    f"&sort=popular&spp=24&suppressSpellcheck=false&{url_filters}")
+    print(url)
     response_json = requests.get(url).json() 
     total_products = response_json["data"]["total"]
     search_size = 10 if total_products >= 10 else total_products
@@ -69,3 +74,6 @@ def download_images(path, search_phrase):
         urls[i] = f"https://www.wildberries.ru/catalog/{id}/detail.aspx"
     return urls
     
+
+
+
