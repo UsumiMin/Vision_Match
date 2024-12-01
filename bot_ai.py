@@ -43,7 +43,7 @@ async def send_welcome(message: types.Message):
     if(not os.path.isdir(f"./images/{message.from_user.id}")):
         os.mkdir(f"./images/{message.from_user.id}")
 
-   await message.reply(
+    await message.reply(
         emoji.emojize(
             "Привет!:waving_hand: \n\nМеня зовут *Vision Match!* Я – ваш помощник в мире моды! :woman_dancing::man_dancing: \nКак это работает? Просто отправьте мне фотографию или рисунок одежды, и я найду лучшие варианты на маркетплейсах! \n\nДавайте начнём работу!"
         ),
@@ -180,14 +180,16 @@ async def do_item(chat_id, base_path, origin_filename, search_phrase, item_name,
     
 
 async def process_message(message: types.Message):
-    filename = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
+    filename = message.photo[-1].file_id
     base_path = f"./images/{message.from_user.id}" #{filename}.jpg"
     img_path = f"{base_path}/{filename}.jpg"
     await bot.download(message.photo[-1], destination=img_path)
     prompt = ""
     if(message.caption):
-        prompt += "Я хочу чтообы ты нашел определенную вещь. " + message.caption 
-    response = vm_model.get_description(img_path, prompt)
+        prompt += "Я хочу чтообы ты нашел определенную вещь. " + message.caption
+    else:
+        prompt += "Найди все вещи. "
+    response = await vm_model.get_description(img_path, prompt)
     print(response)
     json_response = json.loads(response)
     items_size = len(json_response["items"])
