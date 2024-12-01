@@ -1,6 +1,8 @@
 import requests
 import json
 import os
+import aiohttp
+import asyncio
 
 
 def get_basket(shirt_id):
@@ -42,17 +44,49 @@ def get_basket(shirt_id):
     
     return basket
 
-
-def download_images(path, search_phrase):
+async def download_images(path, search_phrase):
     url = (f"https://search.wb.ru/exactmatch/ru/common/v4/search?"
                     f"appType=1&curr=rub&dest=-1257786&page={1}"
                     f"&query={'%20'.join(search_phrase.split())}&resultset=catalog"
                     f"&sort=popular&spp=24&suppressSpellcheck=false")
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            response_json = await response.json(content_type=None)
+            total_products = response_json["data"]["total"]
+            #print(response_json["data"]["total"])
+            search_size = 10 if total_products >= 10 else total_products
+            products = response_json["data"]["products"][:search_size]
+            #print(response_json["data"]["products"][:search_size])
+    urls = {}
+    for i in range(search_size):
+        id = products[i]["id"]
+        name = products[i]["name"]
+        short_id = id//100000 
+        part = id//1000
+        basket = get_basket(short_id)
+        photo_url = f"https://basket-{basket}.wbbasket.ru/vol{short_id}/part{part}/{id}/images/big/1.webp"
+        async with aiohttp.ClientSession() as session:
+            async with session.get(photo_url) as response:
+                #print(response)
+                if not os.path.exists(f"{path}/{search_phrase}/"):
+                    os.makedirs(f"{path}/{search_phrase}/")
+                with open(f"{path}/{search_phrase}/{i}_{id}.jpg", "wb") as file:
+                    file.write(await response.content.read())
+                urls[i] = f"https://www.wildberries.ru/catalog/{id}/detail.aspx"
+    return urls
+    #print(json.dumps(response_json))
 
-    response_json = requests.get(url).json() 
+
+
+#asyncio.run(download_images('./images/1360934675/', 'Штаны кожаные'))
+
+'''response_json = requests.get(url).json() 
+    #print(response_json)
     total_products = response_json["data"]["total"]
+    #print(response_json["data"]["total"])
     search_size = 10 if total_products >= 10 else total_products
     products = response_json["data"]["products"][:search_size]
+    #print(response_json["data"]["products"][:search_size])
     urls = {}
     for i in range(search_size):
         id = products[i]["id"]
@@ -62,10 +96,42 @@ def download_images(path, search_phrase):
         basket = get_basket(short_id)
         photo_url = f"https://basket-{basket}.wbbasket.ru/vol{short_id}/part{part}/{id}/images/big/1.webp"
         response = requests.get(photo_url)
+        #print(response)
         if not os.path.exists(f"{path}/{search_phrase}/"):
             os.makedirs(f"{path}/{search_phrase}/")
         with open(f"{path}/{search_phrase}/{i}_{id}.jpg", "wb") as file:
             file.write(response.content)
         urls[i] = f"https://www.wildberries.ru/catalog/{id}/detail.aspx"
-    return urls
+    return urls'''
     
+'''def download_images(path, search_phrase):
+    url = (f"https://search.wb.ru/exactmatch/ru/common/v4/search?"
+                    f"appType=1&curr=rub&dest=-1257786&page={1}"
+                    f"&query={'%20'.join(search_phrase.split())}&resultset=catalog"
+                    f"&sort=popular&spp=24&suppressSpellcheck=false")
+
+    response_json = requests.get(url).json() 
+    #print(response_json)
+    total_products = response_json["data"]["total"]
+    #print(response_json["data"]["total"])
+    search_size = 10 if total_products >= 10 else total_products
+    products = response_json["data"]["products"][:search_size]
+    #print(response_json["data"]["products"][:search_size])
+    urls = {}
+    for i in range(search_size):
+        id = products[i]["id"]
+        name = products[i]["name"]
+        short_id = id//100000 
+        part = id//1000
+        basket = get_basket(short_id)
+        photo_url = f"https://basket-{basket}.wbbasket.ru/vol{short_id}/part{part}/{id}/images/big/1.webp"
+        response = requests.get(photo_url)
+        #print(response)
+        if not os.path.exists(f"{path}/{search_phrase}/"):
+            os.makedirs(f"{path}/{search_phrase}/")
+        with open(f"{path}/{search_phrase}/{i}_{id}.jpg", "wb") as file:
+            file.write(response.content)
+        urls[i] = f"https://www.wildberries.ru/catalog/{id}/detail.aspx"
+    return urls'''
+
+#print(download_images('./images/1360934675/', 'Штаны кожаные'))
