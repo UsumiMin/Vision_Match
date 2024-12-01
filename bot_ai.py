@@ -19,7 +19,6 @@ import vm_model
 import compare_model
 import parser 
 
-
 bot = Bot(token="")
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
@@ -134,6 +133,15 @@ def compare_item(item_name, origin_path, folder_path):
     print(comparison_ratings[:5])
     return comparison_ratings[:5]
 
+'''def compare_item(item_name, origin_path, folder_path):
+    comparison_ratings = []
+    response = compare_model.compare_images(item_name, origin_path, folder_path)
+    json_response = json.loads(response)
+    comparison_ratings = json_response["comparison_ratings"]
+    comparison_ratings.sort(key=lambda item : item["rating"], reverse=True) 
+    print(comparison_ratings[:5])
+    return comparison_ratings[:5]'''
+
 def get_item_messge(chat_id, description, comparison_ratings, items_urls):
     message = description + "\n\n"
     media = MediaGroupBuilder()
@@ -148,30 +156,6 @@ def get_item_messge(chat_id, description, comparison_ratings, items_urls):
             print("Caught exception while loading photo")
             continue
     return (media, message)
-        
-# async def send_result_match(chat_id, description, comparison_ratings, items_urls):
-#     message = description + "\n\n"
-#     media = MediaGroupBuilder()
-#     for i in range(len(comparison_ratings)):
-#         #item_index = comparison_ratings[i]["image_name"].split("_")[0]
-#         #if(len(item_index)):
-#         #    continue
-#         #item_index = int(item_index)
-#         image_path = comparison_ratings[i]#["image_url"]
-#         item_index = int(image_path.split("/")[-1].split("_")[0])
-#         url = items_urls[item_index]
-#         message += f"{i+1}. {url} \n"
-#         try:
-#             media.add_photo(types.FSInputFile(image_path), caption=url)#url)
-#         except ...:
-#             print("Caight exception while loading photo")
-#             continue
-#     #await bot.send_media_group(chat_id, media_group)
-#     try:
-#         await bot.send_media_group(chat_id, media=media.build())
-#         await bot.send_message(chat_id, message, parse_mode=ParseMode.MARKDOWN)
-#     except ...:
-#         print("Caight exception while sending group")
 
 
 def get_files(folder_path):
@@ -182,9 +166,9 @@ def get_files(folder_path):
 
     return files[:5]
 
-def do_item(chat_id, base_path, origin_filename, search_phrase, item_name, description):
+async def do_item(chat_id, base_path, origin_filename, search_phrase, item_name, description):
     try:
-        items_urls = parser.download_images(base_path+"/search_images/", search_phrase)
+        items_urls = await parser.download_images(base_path+"/search_images/", search_phrase)
         comparison_ratings = get_files(f"{base_path}/search_images/{search_phrase}/")
         return_message = get_item_messge(chat_id, description, comparison_ratings, items_urls)
 
@@ -220,14 +204,14 @@ async def process_message(message: types.Message):
                 print(search_phrase)
                 item_name = json_response["items"][i]["name"]
                 description = json_response["items"][i]["description"]
-                tasks.append(executor.submit(do_item, message.chat.id, base_path, filename, search_phrase, item_name, description))  
+                tasks.append(await do_item(message.chat.id, base_path, filename, search_phrase, item_name, description))  
             except:
                 print(f"Exception on item {item_name}")
                 continue
 
     for i in range(items_size):
         try:
-            media, result_message = tasks[i].result()
+            media, result_message = tasks[i][0], tasks[i][1]
             await bot.send_media_group(message.chat.id, media=media.build())
             await bot.send_message(message.chat.id, result_message, parse_mode=ParseMode.MARKDOWN)
         except:
