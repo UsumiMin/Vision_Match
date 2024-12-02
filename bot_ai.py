@@ -148,30 +148,6 @@ def get_item_messge(chat_id, description, comparison_ratings, items_urls):
             print("Caught exception while loading photo")
             continue
     return (media, message)
-        
-# async def send_result_match(chat_id, description, comparison_ratings, items_urls):
-#     message = description + "\n\n"
-#     media = MediaGroupBuilder()
-#     for i in range(len(comparison_ratings)):
-#         #item_index = comparison_ratings[i]["image_name"].split("_")[0]
-#         #if(len(item_index)):
-#         #    continue
-#         #item_index = int(item_index)
-#         image_path = comparison_ratings[i]#["image_url"]
-#         item_index = int(image_path.split("/")[-1].split("_")[0])
-#         url = items_urls[item_index]
-#         message += f"{i+1}. {url} \n"
-#         try:
-#             media.add_photo(types.FSInputFile(image_path), caption=url)#url)
-#         except ...:
-#             print("Caight exception while loading photo")
-#             continue
-#     #await bot.send_media_group(chat_id, media_group)
-#     try:
-#         await bot.send_media_group(chat_id, media=media.build())
-#         await bot.send_message(chat_id, message, parse_mode=ParseMode.MARKDOWN)
-#     except ...:
-#         print("Caight exception while sending group")
 
 
 def get_files(folder_path):
@@ -185,15 +161,14 @@ def get_files(folder_path):
 def do_item(chat_id, base_path, origin_filename, search_phrase, item_name, description):
     try:
         all_filters = parser.get_filters(item_name)
+        print("Parser filters")
         img_path = f"{base_path}/{origin_filename}.jpg"
-        prompt = f"режим фильтры \n\n входные данные для режима: \n {item_name}\n\n {all_filters}"
-        temp = vm_model.get_description(img_path, prompt)
+        temp = vm_model.get_filters(img_path, item_name, all_filters)
         print(temp)
         filters_reponse = json.loads(temp)
-        print(f"Response\n\n {filters_reponse}")
+        
         url_filters = filters_reponse["filters"]
         print(f"Filters\n\n {url_filters}")
-        print(f"END", "*"*20)
 
         items_urls = parser.download_images(base_path+"/search_images/", search_phrase, url_filters)
         comparison_ratings = get_files(f"{base_path}/search_images/{search_phrase}/")
@@ -201,7 +176,7 @@ def do_item(chat_id, base_path, origin_filename, search_phrase, item_name, descr
 
         return return_message
     except:
-        print(f"Exception caught")
+       print(f"Exception caught")
 
     
 from concurrent.futures import ThreadPoolExecutor
@@ -210,17 +185,26 @@ async def process_message(message: types.Message):
     base_path = f"./images/{message.from_user.id}" #{filename}.jpg"
     img_path = f"{base_path}/{filename}.jpg"
     await bot.download(message.photo[-1], destination=img_path)
-    prompt = "режим описание \n\n "
+    prompt = ""
     if(message.caption):
-        prompt += "входные данные для режима: \n " + message.caption 
+        prompt += "Я хочу чтообы ты нашел определенную вещь. " + message.caption 
     response = vm_model.get_description(img_path, prompt)
     print(response)
     json_response = json.loads(response)
     items_size = len(json_response["items"])
-    if(items_size==0):
-        await message.answer("Не смог найти одежду на фотографии")
+    if (json_response["error_message"]):
+        await message.answer(json_response["error_message"])
         return 
 
+    if(items_size==0):
+        error_message = "Извините, я не нашел этот элемент одежды в доступных интернет-магазинах. Возможно, он отсутствует в продаже. Попробуйте запросить что-то другое!"
+        await message.answer(error_message)
+        return 
+    
+    if(items_size >= 10):
+        wait_please_msg = "На вашем изображении больше 10 элементов, их поиск может занять много времени. Вы уверены, что хотите продолжить?"
+        await message.answer(wait_please_msg)
+        
     tasks = []  
     with ThreadPoolExecutor() as executor:
         for i in range(items_size):
@@ -234,13 +218,18 @@ async def process_message(message: types.Message):
                 print(f"Exception on item {item_name}")
                 continue
 
-    for i in range(items_size):
+    for task in tasks:
+        print("Task result")
         try:
-            media, result_message = tasks[i].result()
+            result = task.result()
+            print(result)
+            media, result_message = result
             await bot.send_media_group(message.chat.id, media=media.build())
             await bot.send_message(message.chat.id, result_message, parse_mode=ParseMode.MARKDOWN)
-        except:
-            print(f"Couldn't send message with index {i}")
+        except Exception as e:
+            error_messge = "Я нашел подходящие варианты, но возникла ошибка при отправке информации. Пожалуйста, попробуйте повторить запрос позже."
+            await message.answer(error_messge)
+            #print(f"Couldn't send message with index {i} with error")
 
     if(os.path.isdir(f"{base_path}/search_images/")):
         shutil.rmtree(f"{base_path}/search_images/")
