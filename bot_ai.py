@@ -18,8 +18,9 @@ import shutil
 import vm_model
 import compare_model
 import parser 
+import parser_ali
 
-bot = Bot(token="")
+bot = Bot(token="7544782847:AAFHEdr9zSDWVKmROIi4g_z7__X309SIqs0")
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
 
@@ -176,6 +177,17 @@ async def do_item(chat_id, base_path, origin_filename, search_phrase, item_name,
     except:
         print(f"Exception caught")
 
+async def do_item_ali(chat_id, base_path, origin_filename, search_phrase, item_name, description):
+    try:
+        items_urls = await parser_ali.download_images(base_path+"/search_images/", search_phrase)
+        comparison_ratings = get_files(f"{base_path}/search_images/{search_phrase}/")
+        return_message = get_item_messge(chat_id, description, comparison_ratings, items_urls)
+
+        return return_message
+    except:
+        print(f"Exception caught")
+
+
     
 from concurrent.futures import ThreadPoolExecutor
 async def process_message(message: types.Message):
@@ -205,6 +217,7 @@ async def process_message(message: types.Message):
                 item_name = json_response["items"][i]["name"]
                 description = json_response["items"][i]["description"]
                 tasks.append(await do_item(message.chat.id, base_path, filename, search_phrase, item_name, description))  
+                tasks.append(await do_item_ali(message.chat.id, base_path, filename, search_phrase, item_name, description))
             except:
                 print(f"Exception on item {item_name}")
                 continue

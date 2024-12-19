@@ -54,10 +54,9 @@ async def download_images(path, search_phrase):
             print(await response.text())
             response_json = await response.json(content_type=None)
             total_products = response_json["data"]["total"]
-            #print(response_json["data"]["total"])
             search_size = 10 if total_products >= 10 else total_products
             products = response_json["data"]["products"][:search_size]
-            #print(response_json["data"]["products"][:search_size])
+
     urls = {}
     for i in range(search_size):
         id = products[i]["id"]
@@ -75,8 +74,8 @@ async def download_images(path, search_phrase):
                     file.write(await response.content.read())
                 urls[i] = f"https://www.wildberries.ru/catalog/{id}/detail.aspx"
     return urls
-    #print(json.dumps(response_json))
 
+<<<<<<< Updated upstream
 
 
 asyncio.run(download_images('./images/1360934675/', 'Штаны кожаные'))
@@ -136,3 +135,5 @@ asyncio.run(download_images('./images/1360934675/', 'Штаны кожаные')
     return urls'''
 
 #print(download_images('./images/1360934675/', 'Штаны кожаные'))
+=======
+>>>>>>> Stashed changes

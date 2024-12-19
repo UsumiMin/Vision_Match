@@ -43,6 +43,7 @@ def get_basket(shirt_id):
     return basket
 
 async def download_images(path, search_phrase):
+<<<<<<< Updated upstream
     url = (f"https://aliexpress.ru/aer-webapi/v1/search")
     params= {
         "aeBrainIds": [],
@@ -53,6 +54,18 @@ async def download_images(path, search_phrase):
         "searchTrigger": "",
         "source": "direct",
         "storeIds": []
+=======
+    url = (f"https://aliexpress.com/aer-webapi/v1/search")
+    params= {
+        "aeBrainIds": [],
+"catId": "",
+"pgChildren": [],
+"searchInfo": "",
+"searchText": "туфли",
+"searchTrigger": "",
+"source": "direct",
+"storeIds": []
+>>>>>>> Stashed changes
     }
           
                 #    f"appType=1&curr=rub&dest=-1257786&page={1}"
@@ -62,10 +75,17 @@ async def download_images(path, search_phrase):
     #       f'?SearchText={"+".join(search_phrase.split())}'
     #       f'&page=1')
     async with aiohttp.ClientSession() as session:
+<<<<<<< Updated upstream
         async with session.get(url,params=params) as response:
             print(await response.text())
             response_json = await response.json(content_type=None)
             print(response_json.text())
+=======
+        async with session.post(url,params=params) as response:
+            print(response)
+            response_json = await response.json(content_type=None)
+            print(response_json)
+>>>>>>> Stashed changes
             total_products = response_json["data"]["resultsCount"]
             print(total_products)
             search_size = 10 if total_products >= 10 else total_products
