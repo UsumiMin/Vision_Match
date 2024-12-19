@@ -51,6 +51,7 @@ async def download_images(path, search_phrase):
                     f"&sort=popular&spp=24&suppressSpellcheck=false")
     async with aiohttp.ClientSession() as session:
         async with session.get(url) as response:
+            print(await response.text())
             response_json = await response.json(content_type=None)
             total_products = response_json["data"]["total"]
             #print(response_json["data"]["total"])
@@ -78,7 +79,7 @@ async def download_images(path, search_phrase):
 
 
 
-#asyncio.run(download_images('./images/1360934675/', 'Штаны кожаные'))
+asyncio.run(download_images('./images/1360934675/', 'Штаны кожаные'))
 
 '''response_json = requests.get(url).json() 
     #print(response_json)
