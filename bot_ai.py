@@ -11,16 +11,15 @@ from aiogram.enums.parse_mode import ParseMode
 import os
 import datetime
 import json
-import re 
-import threading 
 import shutil
 
-import vm_model
-import compare_model
-import parser 
-import parser_ali
+from ai_models import VisionModel, ComparisonModel
+import parsers
 
-bot = Bot(token="7544782847:AAFHEdr9zSDWVKmROIi4g_z7__X309SIqs0")
+vision_model = VisionModel()
+comparison_model = ComparisonModel()
+
+bot = Bot(token="7911900370:AAH8I5skyucy8wXUXPYLB4x3tNsgl0CJxiE")
 # Включаем логирование, чтобы не пропустить важные сообщения
 logging.basicConfig(level=logging.INFO)
 
@@ -125,30 +124,22 @@ async def with_puree(message: types.Message):
 async def url_command(message: types.Message):
     await send_welcome(message)
 
-def compare_item(item_name, origin_path, folder_path):
+async def compare_response(item_name, origin_path, folder_path):
     comparison_ratings = []
-    response = compare_model.compare_images(item_name, origin_path, folder_path)
+    response = await comparison_model.compare_images(item_name, origin_path, folder_path)
     json_response = json.loads(response)
-    comparison_ratings = json_response["comparison_ratings"]
-    comparison_ratings.sort(key=lambda item : item["rating"], reverse=True) 
-    print(comparison_ratings[:5])
-    return comparison_ratings[:5]
+    for item in json_response["comparison_ratings"]:
+        comparison_ratings.append(item["image_path"])
 
-'''def compare_item(item_name, origin_path, folder_path):
-    comparison_ratings = []
-    response = compare_model.compare_images(item_name, origin_path, folder_path)
-    json_response = json.loads(response)
-    comparison_ratings = json_response["comparison_ratings"]
-    comparison_ratings.sort(key=lambda item : item["rating"], reverse=True) 
-    print(comparison_ratings[:5])
-    return comparison_ratings[:5]'''
+    return comparison_ratings[:5]
 
 def get_item_messge(chat_id, description, comparison_ratings, items_urls):
     message = description + "\n\n"
     media = MediaGroupBuilder()
+    print(items_urls)
     for i in range(len(comparison_ratings)):
-        image_path = comparison_ratings[i]#["image_url"]
-        item_index = int(image_path.split("/")[-1].split("_")[0])
+        image_path = comparison_ratings[i]
+        item_index = int(image_path.split("/")[-1].split(".")[0])
         url = items_urls[item_index]
         message += f"{i+1}. {url} \n"
         try:
@@ -169,58 +160,51 @@ def get_files(folder_path):
 
 async def do_item(chat_id, base_path, origin_filename, search_phrase, item_name, description):
     try:
-        items_urls = await parser.download_images(base_path+"/search_images/", search_phrase)
-        comparison_ratings = get_files(f"{base_path}/search_images/{search_phrase}/")
+        items_urls = await parsers.parse_shops(search_phrase, f"{base_path}/search_images/{search_phrase}/")
+        comparison_ratings = await compare_response(item_name, origin_filename, f"{base_path}/search_images/{search_phrase}/")
         return_message = get_item_messge(chat_id, description, comparison_ratings, items_urls)
 
         return return_message
     except:
         print(f"Exception caught")
-
-async def do_item_ali(chat_id, base_path, origin_filename, search_phrase, item_name, description):
-    try:
-        items_urls = await parser_ali.download_images(base_path+"/search_images/", search_phrase)
-        comparison_ratings = get_files(f"{base_path}/search_images/{search_phrase}/")
-        return_message = get_item_messge(chat_id, description, comparison_ratings, items_urls)
-
-        return return_message
-    except:
-        print(f"Exception caught")
-
-
     
-from concurrent.futures import ThreadPoolExecutor
 async def process_message(message: types.Message):
-    filename = message.photo[-1].file_id
+    filename = datetime.datetime.now().strftime("%Y-%m-%d_%H:%M:%S")
     base_path = f"./images/{message.from_user.id}" #{filename}.jpg"
     img_path = f"{base_path}/{filename}.jpg"
     await bot.download(message.photo[-1], destination=img_path)
-    prompt = ""
+    prompt = "режим описание \n\n "
     if(message.caption):
-        prompt += "Я хочу чтообы ты нашел определенную вещь. " + message.caption
-    else:
-        prompt += "Найди все вещи. "
-    response = await vm_model.get_description(img_path, prompt)
+        prompt += "входные данные для режима: \n " + message.caption 
+    response = await vision_model.get_description(img_path, prompt)
+    # response = vm_model.get_description(img_path, prompt)
     print(response)
     json_response = json.loads(response)
     items_size = len(json_response["items"])
-    if(items_size==0):
-        await message.answer("Не смог найти одежду на фотографии")
+    if (json_response.get("error_message")):
+        await message.answer(json_response["error_message"])
         return 
 
+    if(items_size==0):
+        error_message = "К сожалению, я не смог найти указанный элемент на вашем изображении. Пожалуйста, попробуйте загрузить другое изображение или выберите более четкий ракурс."
+        await message.answer(error_message)
+        return 
+    
+    if(items_size >= 10):
+        wait_please_msg = "На вашем изображении больше 10 элементов, их поиск может занять много времени. Вы уверены, что хотите продолжить?"
+        await message.answer(wait_please_msg)
+        
     tasks = []  
-    with ThreadPoolExecutor() as executor:
-        for i in range(items_size):
-            try:
-                search_phrase = json_response["items"][i]["search_phrase"]
-                print(search_phrase)
-                item_name = json_response["items"][i]["name"]
-                description = json_response["items"][i]["description"]
-                tasks.append(await do_item(message.chat.id, base_path, filename, search_phrase, item_name, description))  
-                tasks.append(await do_item_ali(message.chat.id, base_path, filename, search_phrase, item_name, description))
-            except:
-                print(f"Exception on item {item_name}")
-                continue
+    for i in range(items_size):
+        try:
+            search_phrase = json_response["items"][i]["search_phrase"]
+            print(search_phrase)
+            item_name = json_response["items"][i]["name"]
+            description = json_response["items"][i]["description"]
+            tasks.append(await do_item(message.chat.id, base_path, img_path, search_phrase, item_name, description))  
+        except:
+            print(f"Exception on item {item_name}")
+            continue
 
     for i in range(items_size):
         try:
